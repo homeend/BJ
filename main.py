@@ -1,7 +1,8 @@
 import dataclasses
 import enum
 import random
-from typing import List, NewType
+from functools import cached_property
+from typing import List, NewType, Tuple
 
 
 class AutoName(enum.Enum):
@@ -22,7 +23,7 @@ class PlayerCardsState(EnumReprMixin, enum.Flag):
     BUSTED = enum.auto()
     SPLITTABLE = enum.auto()
     BJ = enum.auto()
-    DOUBLE = enum.auto()
+    START = enum.auto()
 
 
 class PlayerAction(EnumReprMixin, AutoName):
@@ -50,7 +51,13 @@ def main():
         player_cards.add_card(shoe.get_one())
         print(player_cards)
         status = player_cards.evaluate()
-        print(status, status & PlayerCardsState.DOUBLE, status & PlayerCardsState.PLAYABLE, player_cards.high(), player_cards.low())
+        print(
+            status,
+            status & PlayerCardsState.START,
+            status & PlayerCardsState.PLAYABLE,
+            player_cards.high(),
+            player_cards.low(),
+        )
 
 
 class Suit(EnumReprMixin, enum.Enum):
@@ -122,6 +129,10 @@ class DomainError(Exception):
     pass
 
 
+class CannotModifyHand(DomainError):
+    pass
+
+
 class NoMoreCards(DomainError):
     pass
 
@@ -145,6 +156,116 @@ class Shoe:
         card = self.cards.pop(0)
         self.used.append(card)
         return card
+
+
+@dataclasses.dataclass
+class CardsEvaluator:
+    cards: List[Card]
+
+    def high(self):
+        return sum(c.high for c in self.cards)
+
+    def low(self):
+        return sum(c.low for c in self.cards)
+
+    def _only_two(self) -> bool:
+        return len(self.cards) == 2
+
+    def evaluate(self) -> PlayerCardsState:
+        if self._only_two():
+            if self.high() == 21:
+                return PlayerCardsState.BJ
+            elif len(set(self._values())) == 1:
+                return PlayerCardsState.SPLITTABLE
+            else:
+                return PlayerCardsState.START
+
+        elif self.low() > 21 and self.high() > 21:
+            return PlayerCardsState.BUSTED
+
+        return PlayerCardsState.PLAYABLE
+
+    def _values(self):
+        return [c.value for c in self.cards]
+
+    def value(self):
+        high = self.high()
+        low = self.low()
+        if high == low:
+            return high
+        return low if high > 21 else high
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.cards})"
+
+
+class PlayerHand:
+    def __init__(self, cards: List[Card] = None):
+        self._cards = cards or []
+
+    def add_card(
+        self, card: Card, other: Card = None, close: bool = False
+    ) -> "PlayerHand":
+        if other:
+            cards = [*self._cards, card, other]
+        else:
+            cards = [*self._cards, card]
+
+        cards_evaluator = CardsEvaluator(cards)
+        player_cards_state = cards_evaluator.evaluate()
+
+        if close:
+            if player_cards_state == PlayerCardsState.BUSTED:
+                return Busted(cards)
+            return Closed(cards)
+
+        match player_cards_state:
+            case PlayerCardsState.SPLITTABLE:
+                return Splittable(cards)
+            case PlayerCardsState.PLAYABLE:
+                return PlayerHand(cards)
+            case PlayerCardsState.BJ:
+                return BlackJack(cards)
+            case PlayerCardsState.START:
+                return StartHand(cards)
+            case PlayerCardsState.BUSTED:
+                return Busted(cards)
+
+    @property
+    def cards(self) -> List[Card]:
+        return self._cards
+
+    @cached_property
+    def value(self) -> int:
+        return CardsEvaluator(self._cards).value()
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.cards})"
+
+
+class Closed(PlayerHand):
+    def add_card(self, card: Card, other: Card = None):
+        raise CannotModifyHand()
+
+
+class StartHand(PlayerHand):
+    def double_down(self, card: Card) -> Closed:
+        return self.add_card(card, close=True)
+
+
+class Splittable(StartHand):
+    def split(self, c1: Card, c2: Card) -> Tuple[StartHand, StartHand]:
+        return PlayerHand(self.cards[0]).add_card(c1), PlayerHand(
+            self.cards[1]
+        ).add_card(c2)
+
+
+class BlackJack(Closed):
+    pass
+
+
+class Busted(Closed):
+    pass
 
 
 class PlayerCards:
@@ -175,7 +296,7 @@ class PlayerCards:
             return PlayerCardsState.BUSTED
 
         if self.only_two():
-            return PlayerCardsState.PLAYABLE | PlayerCardsState.DOUBLE
+            return PlayerCardsState.PLAYABLE | PlayerCardsState.START
 
         return PlayerCardsState.PLAYABLE
 
