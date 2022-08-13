@@ -1,3 +1,4 @@
+import contextlib
 import dataclasses
 import enum
 import random
@@ -116,60 +117,68 @@ class Shoe:
         if shuffle:
             random.shuffle(self.cards)
         self.used = []
+        self._reshuffle_count = 0
 
     def __iter__(self):
         return iter(self.cards)
 
-    def shuffle(self):
-        return random.sample(self.cards, k=len(self.cards))
-
     def get_card(self):
         if not self.cards:
-            raise NoMoreCards()
+            self.reshuffle()
         card = self.cards.pop(0)
         self.used.append(card)
         return card
+
+    def reshuffle(self):
+        self.cards = self.used
+        self.used = []
+        self._reshuffle_count += 1
+        random.shuffle(self.cards)
+
+    def reshuffle_count(self):
+        return self._reshuffle_count
+
+
+class CardUtils:
+    @staticmethod
+    def high(cards: List[Card]):
+        return sum(c.high for c in cards)
+
+    @staticmethod
+    def low(cards: List[Card]):
+        return sum(c.low for c in cards)
+
+    @staticmethod
+    def value(cards: List[Card]):
+        high = CardUtils.high(cards)
+        low = CardUtils.low(cards)
+        if high == low:
+            return high
+        return low if high > 21 else high
 
 
 @dataclasses.dataclass
 class CardsEvaluator:
     cards: List[Card]
 
-    def high(self):
-        return sum(c.high for c in self.cards)
-
-    def low(self):
-        return sum(c.low for c in self.cards)
-
-    def _only_two(self) -> bool:
-        return len(self.cards) == 2
-
     def evaluate(self) -> PlayerCardsState:
-        if self._only_two():
-            if self.high() == 21:
+        high = CardUtils.high(self.cards)
+        low = CardUtils.low(self.cards)
+        if len(self.cards) == 2:
+            if high == 21:
                 return PlayerCardsState.BJ
             elif len(set(self._values())) == 1:
                 return PlayerCardsState.SPLITTABLE
             else:
                 return PlayerCardsState.START
 
-        elif self.low() > 21 and self.high() > 21:
+        elif low > 21 and high > 21:
             return PlayerCardsState.BUSTED
 
         return PlayerCardsState.PLAYABLE
 
     def _values(self):
         return [c.value for c in self.cards]
-
-    def value(self):
-        high = self.high()
-        low = self.low()
-        if high == low:
-            return high
-        return low if high > 21 else high
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.cards})"
 
 
 class PlayerHand:
@@ -180,7 +189,7 @@ class PlayerHand:
             self._cards = card_or_cards or []
 
         if len(self._cards) > 1:
-            self.value = CardsEvaluator(self._cards).value()
+            self.value = CardUtils.value(self._cards)
 
     def hit(self, card: Card, other: Card = None, close: bool = False) -> "PlayerHand":
         if other:
@@ -188,8 +197,7 @@ class PlayerHand:
         else:
             cards = [*self._cards, card]
 
-        cards_evaluator = CardsEvaluator(cards)
-        player_cards_state = cards_evaluator.evaluate()
+        player_cards_state = CardsEvaluator(cards).evaluate()
 
         if close:
             if player_cards_state == PlayerCardsState.BUSTED:
@@ -260,46 +268,51 @@ def main():
 
     shoe = Shoe(shuffle=True)
 
-    player_cards = PlayerHand(shoe.get_card())
-    player_cards = player_cards.hit(shoe.get_card())
-    print(player_cards, player_cards.value)
-
     played = []
-    in_play = [player_cards]
+    in_play = []
 
-    while in_play:
-        player_hand = in_play.pop(0)
-        if isinstance(player_hand, Splittable):
-            print("splitting", player_hand.cards[0].value.name)
-            h1, h2 = player_hand.split(shoe.get_card(), shoe.get_card())
-            print("new cards", h1)
-            print("new cards", h2)
-            in_play.append(h1)
-            in_play.append(h2)
-            continue
+    while shoe.reshuffle_count() == 0:
+        player_cards = PlayerHand(shoe.get_card())
+        player_cards = player_cards.hit(shoe.get_card())
+        print(player_cards, player_cards.value)
 
-        while not isinstance(player_hand, Closed):
-            if (
-                isinstance(player_hand, StartHand)
-                and player_hand.is_hard
-                and player_hand.value < 10
-            ):
-                player_hand = player_hand.double_down(shoe.get_card())
-                print(
-                    "double down",
-                    player_hand,
-                    player_hand.value,
-                )
-            elif player_hand.value >= 19:
-                player_hand = player_hand.stand()
-            else:
-                player_hand = player_hand.hit(shoe.get_card())
-                print(
-                    "hit",
-                    player_hand,
-                    player_hand.value,
-                )
-        played.append(player_hand)
+        in_play.append(player_cards)
+
+        while in_play:
+            player_hand = in_play.pop(0)
+            if isinstance(player_hand, Splittable):
+                print("splitting", player_hand.cards[0].value.name)
+                h1, h2 = player_hand.split(shoe.get_card(), shoe.get_card())
+                print("new cards", h1)
+                print("new cards", h2)
+                in_play.append(h1)
+                in_play.append(h2)
+                continue
+
+            while not isinstance(player_hand, Closed):
+                if (
+                    isinstance(player_hand, StartHand)
+                    and player_hand.is_hard
+                    and player_hand.value < 10
+                ):
+                    player_hand = player_hand.double_down(shoe.get_card())
+                    print(
+                        "double down",
+                        player_hand,
+                        player_hand.value,
+                    )
+                elif player_hand.value >= 19:
+                    player_hand = player_hand.stand()
+                else:
+                    player_hand = player_hand.hit(shoe.get_card())
+                    print(
+                        "hit",
+                        player_hand,
+                        player_hand.value,
+                    )
+            played.append(player_hand)
+
+    print("\u2500"*100)
 
     for hand in played:
         print("played", hand, hand.value)
