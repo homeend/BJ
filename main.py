@@ -179,7 +179,7 @@ class PlayerHand:
         else:
             self._cards = card_or_cards or []
 
-    def add_card(
+    def hit(
         self, card: Card, other: Card = None, close: bool = False
     ) -> "PlayerHand":
         if other:
@@ -228,20 +228,20 @@ class PlayerHand:
 
 
 class Closed(PlayerHand):
-    def add_card(self, card: Card, other: Card = None):
+    def hit(self, card: Card, other: Card = None):
         raise CannotModifyHand()
 
 
 class StartHand(PlayerHand):
     def double_down(self, card: Card) -> Closed:
-        return self.add_card(card, close=True)
+        return self.hit(card, close=True)
 
 
 class Splittable(StartHand):
     def split(self, c1: Card, c2: Card) -> Tuple[StartHand, StartHand]:
-        return PlayerHand(self.cards[0]).add_card(c1), PlayerHand(
+        return PlayerHand(self.cards[0]).hit(c1), PlayerHand(
             self.cards[1]
-        ).add_card(c2)
+        ).hit(c2)
 
 
 class BlackJack(Closed):
@@ -303,7 +303,7 @@ def main():
     shoe = Shoe(shuffle=True)
 
     player_cards = PlayerHand(shoe.get_one())
-    player_cards = player_cards.add_card(shoe.get_one())
+    player_cards = player_cards.hit(shoe.get_one())
     print(player_cards, player_cards.value)
 
     played = []
@@ -331,7 +331,7 @@ def main():
             elif player_hand.value >= 19:
                 player_hand = player_hand.stand()
             else:
-                player_hand = player_hand.add_card(shoe.get_one())
+                player_hand = player_hand.hit(shoe.get_one())
                 print(
                     "hit",
                     player_hand,
