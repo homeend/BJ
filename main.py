@@ -207,6 +207,10 @@ class PlayerHand:
             case PlayerCardsState.BUSTED:
                 return Busted(cards)
 
+    def stand(self):
+        return Closed(self._cards)
+
+
     @property
     def cards(self) -> List[Card]:
         return self._cards
@@ -214,6 +218,10 @@ class PlayerHand:
     @cached_property
     def value(self) -> int:
         return CardsEvaluator(self._cards).value()
+
+    @cached_property
+    def is_hard(self) -> int:
+        return  Values.ACE not in {c.value for c in self.cards}
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.cards})"
@@ -301,12 +309,38 @@ def main():
     played = []
     in_play = [player_cards]
 
-    while not isinstance(player_cards, Closed):
-        player_cards = player_cards.add_card(shoe.get_one())
-        print(
-            player_cards,
-            player_cards.value,
-        )
+    while in_play:
+        player_hand = in_play.pop(0)
+        if isinstance(player_hand, Splittable):
+            print("splitting", player_hand.cards[0].value.name)
+            h1, h2 = player_hand.split(shoe.get_one(), shoe.get_one())
+            print("new cards", h1)
+            print("new cards", h2)
+            in_play.append(h1)
+            in_play.append(h2)
+            continue
+
+        while not isinstance(player_hand, Closed):
+            if isinstance(player_hand, StartHand) and player_hand.is_hard and player_hand.value < 10:
+                player_hand = player_hand.double_down(shoe.get_one())
+                print(
+                    "double down",
+                    player_hand,
+                    player_hand.value,
+                )
+            elif player_hand.value >= 19:
+                player_hand = player_hand.stand()
+            else:
+                player_hand = player_hand.add_card(shoe.get_one())
+                print(
+                    "hit",
+                    player_hand,
+                    player_hand.value,
+                )
+        played.append(player_hand)
+
+    for hand in played:
+        print("played", hand, hand.value)
 
 
 if __name__ == "__main__":
