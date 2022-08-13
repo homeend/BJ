@@ -123,7 +123,7 @@ class Shoe:
     def shuffle(self):
         return random.sample(self.cards, k=len(self.cards))
 
-    def get_one(self):
+    def get_card(self):
         if not self.cards:
             raise NoMoreCards()
         card = self.cards.pop(0)
@@ -179,9 +179,10 @@ class PlayerHand:
         else:
             self._cards = card_or_cards or []
 
-    def hit(
-        self, card: Card, other: Card = None, close: bool = False
-    ) -> "PlayerHand":
+        if len(self._cards) > 1:
+            self.value = CardsEvaluator(self._cards).value()
+
+    def hit(self, card: Card, other: Card = None, close: bool = False) -> "PlayerHand":
         if other:
             cards = [*self._cards, card, other]
         else:
@@ -210,18 +211,16 @@ class PlayerHand:
     def stand(self):
         return Closed(self._cards)
 
-
     @property
     def cards(self) -> List[Card]:
         return self._cards
 
-    @cached_property
     def value(self) -> int:
-        return CardsEvaluator(self._cards).value()
+        return self.value
 
     @cached_property
     def is_hard(self) -> int:
-        return  Values.ACE not in {c.value for c in self.cards}
+        return Values.ACE not in {c.value for c in self.cards}
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.cards})"
@@ -239,9 +238,7 @@ class StartHand(PlayerHand):
 
 class Splittable(StartHand):
     def split(self, c1: Card, c2: Card) -> Tuple[StartHand, StartHand]:
-        return PlayerHand(self.cards[0]).hit(c1), PlayerHand(
-            self.cards[1]
-        ).hit(c2)
+        return PlayerHand(self.cards[0]).hit(c1), PlayerHand(self.cards[1]).hit(c2)
 
 
 class BlackJack(Closed):
@@ -250,45 +247,6 @@ class BlackJack(Closed):
 
 class Busted(Closed):
     pass
-
-
-# class PlayerCards:
-#     def __init__(self):
-#         self.cards: List[Card] = []
-#
-#     def add_card(self, card: Card):
-#         self.cards.append(card)
-#         self.evaluate()
-#
-#     def high(self):
-#         return sum(c.high for c in self.cards)
-#
-#     def low(self):
-#         return sum(c.low for c in self.cards)
-#
-#     def only_two(self) -> bool:
-#         return len(self.cards) == 2
-#
-#     def evaluate(self) -> PlayerCardsState:
-#         if self.only_two() and self.high() == 21:
-#             return PlayerCardsState.BJ
-#
-#         if self.only_two() and len(set(self.values())) == 1:
-#             return PlayerCardsState.SPLITTABLE
-#
-#         if self.low() > 21 and self.high() > 21:
-#             return PlayerCardsState.BUSTED
-#
-#         if self.only_two():
-#             return PlayerCardsState.PLAYABLE | PlayerCardsState.START
-#
-#         return PlayerCardsState.PLAYABLE
-#
-#     def values(self):
-#         return [c.value for c in self.cards]
-#
-#     def __repr__(self):
-#         return f"{self.__class__.__name__}({self.cards})"
 
 
 def main():
@@ -302,8 +260,8 @@ def main():
 
     shoe = Shoe(shuffle=True)
 
-    player_cards = PlayerHand(shoe.get_one())
-    player_cards = player_cards.hit(shoe.get_one())
+    player_cards = PlayerHand(shoe.get_card())
+    player_cards = player_cards.hit(shoe.get_card())
     print(player_cards, player_cards.value)
 
     played = []
@@ -313,7 +271,7 @@ def main():
         player_hand = in_play.pop(0)
         if isinstance(player_hand, Splittable):
             print("splitting", player_hand.cards[0].value.name)
-            h1, h2 = player_hand.split(shoe.get_one(), shoe.get_one())
+            h1, h2 = player_hand.split(shoe.get_card(), shoe.get_card())
             print("new cards", h1)
             print("new cards", h2)
             in_play.append(h1)
@@ -321,8 +279,12 @@ def main():
             continue
 
         while not isinstance(player_hand, Closed):
-            if isinstance(player_hand, StartHand) and player_hand.is_hard and player_hand.value < 10:
-                player_hand = player_hand.double_down(shoe.get_one())
+            if (
+                isinstance(player_hand, StartHand)
+                and player_hand.is_hard
+                and player_hand.value < 10
+            ):
+                player_hand = player_hand.double_down(shoe.get_card())
                 print(
                     "double down",
                     player_hand,
@@ -331,7 +293,7 @@ def main():
             elif player_hand.value >= 19:
                 player_hand = player_hand.stand()
             else:
-                player_hand = player_hand.hit(shoe.get_one())
+                player_hand = player_hand.hit(shoe.get_card())
                 print(
                     "hit",
                     player_hand,
