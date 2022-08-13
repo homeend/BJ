@@ -191,12 +191,8 @@ class PlayerHand:
         if len(self._cards) > 1:
             self.value = CardUtils.value(self._cards)
 
-    def hit(self, card: Card, other: Card = None, close: bool = False) -> "PlayerHand":
-        if other:
-            cards = [*self._cards, card, other]
-        else:
-            cards = [*self._cards, card]
-
+    def hit(self, card: Card, close: bool = False) -> "PlayerHand":
+        cards = [*self._cards, card]
         player_cards_state = CardsEvaluator(cards).evaluate()
 
         if close:
@@ -235,7 +231,7 @@ class PlayerHand:
 
 
 class Closed(PlayerHand):
-    def hit(self, card: Card, other: Card = None):
+    def hit(self, card: Card):
         raise CannotModifyHand()
 
 
