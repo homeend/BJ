@@ -179,9 +179,6 @@ class PlayerCards:
 
         return PlayerCardsState.PLAYABLE
 
-    def suits(self):
-        return [c.suit for c in self.cards]
-
     def values(self):
         return [c.value for c in self.cards]
 
