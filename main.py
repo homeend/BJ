@@ -22,6 +22,7 @@ class PlayerCardsState(EnumReprMixin, enum.Flag):
     BUSTED = enum.auto()
     SPLITTABLE = enum.auto()
     BJ = enum.auto()
+    DOUBLE = enum.auto()
 
 
 class PlayerAction(EnumReprMixin, AutoName):
@@ -32,21 +33,24 @@ class PlayerAction(EnumReprMixin, AutoName):
 
 
 def main():
-    for card in Shoe(2, True):
-        print(card)
-    assert len(list(Shoe(3))) == 156
-    assert len(list(Shoe(3).shuffle())) == 156
-    assert len(list(Shoe(2, True))) == 104
-    assert set(Shoe()) == set(Shoe(shuffle=True))
-    assert len(set(Shoe(shuffle=True))) == 52
+    # for card in Shoe(2, True):
+    #     print(card)
+    # assert len(list(Shoe(3))) == 156
+    # assert len(list(Shoe(3).shuffle())) == 156
+    # assert len(list(Shoe(2, True))) == 104
+    # assert set(Shoe()) == set(Shoe(shuffle=True))
+    # assert len(set(Shoe(shuffle=True))) == 52
 
-    shoe = Shoe()
+    shoe = Shoe(shuffle=True)
 
     player_cards = PlayerCards()
     player_cards.add_card(shoe.get_one())
-    player_cards.add_card(shoe.get_one())
-    print(player_cards)
-    print(player_cards.evaluate())
+    status = PlayerCardsState.PLAYABLE
+    while status != PlayerCardsState.BUSTED:
+        player_cards.add_card(shoe.get_one())
+        print(player_cards)
+        status = player_cards.evaluate()
+        print(status, status & PlayerCardsState.DOUBLE, status & PlayerCardsState.PLAYABLE, player_cards.high(), player_cards.low())
 
 
 class Suit(EnumReprMixin, enum.Enum):
@@ -157,13 +161,29 @@ class PlayerCards:
     def low(self):
         return sum(c.low for c in self.cards)
 
+    def only_two(self) -> bool:
+        return len(self.cards) == 2
+
     def evaluate(self) -> PlayerCardsState:
+        if self.only_two() and self.high() == 21:
+            return PlayerCardsState.BJ
+
+        if self.only_two() and len(set(self.values())) == 1:
+            return PlayerCardsState.SPLITTABLE
+
         if self.low() > 21 and self.high() > 21:
             return PlayerCardsState.BUSTED
+
+        if self.only_two():
+            return PlayerCardsState.PLAYABLE | PlayerCardsState.DOUBLE
+
         return PlayerCardsState.PLAYABLE
 
     def suits(self):
         return [c.suit for c in self.cards]
+
+    def values(self):
+        return [c.value for c in self.cards]
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.cards})"
