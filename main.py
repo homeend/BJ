@@ -1,4 +1,3 @@
-import contextlib
 import dataclasses
 import enum
 import random
@@ -13,8 +12,6 @@ class AutoName(enum.Enum):
 
 
 class EnumReprMixin(enum.Flag):
-    pass
-
     def __repr__(self):
         return f"{self.__class__.__name__}.{self.name}"
 
@@ -268,6 +265,7 @@ def main():
     in_play = []
 
     while shoe.reshuffle_count() == 0:
+        print("\u2500" * 100)
         player_cards = PlayerHand(shoe.get_card())
         player_cards = player_cards.hit(shoe.get_card())
         print(player_cards, player_cards.value)
@@ -308,6 +306,7 @@ def main():
                     )
             played.append(player_hand)
 
+    print("\u2500"*100)
     print("\u2500"*100)
 
     for hand in played:
