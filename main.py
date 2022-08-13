@@ -2,7 +2,7 @@ import dataclasses
 import enum
 import random
 from functools import cached_property
-from typing import List, NewType, Tuple
+from typing import List, NewType, Tuple, Union
 
 
 class AutoName(enum.Enum):
@@ -31,33 +31,6 @@ class PlayerAction(EnumReprMixin, AutoName):
     STAND = enum.auto()
     SPLIT = enum.auto()
     DOUBLE = enum.auto()
-
-
-def main():
-    # for card in Shoe(2, True):
-    #     print(card)
-    # assert len(list(Shoe(3))) == 156
-    # assert len(list(Shoe(3).shuffle())) == 156
-    # assert len(list(Shoe(2, True))) == 104
-    # assert set(Shoe()) == set(Shoe(shuffle=True))
-    # assert len(set(Shoe(shuffle=True))) == 52
-
-    shoe = Shoe(shuffle=True)
-
-    player_cards = PlayerCards()
-    player_cards.add_card(shoe.get_one())
-    status = PlayerCardsState.PLAYABLE
-    while status != PlayerCardsState.BUSTED:
-        player_cards.add_card(shoe.get_one())
-        print(player_cards)
-        status = player_cards.evaluate()
-        print(
-            status,
-            status & PlayerCardsState.START,
-            status & PlayerCardsState.PLAYABLE,
-            player_cards.high(),
-            player_cards.low(),
-        )
 
 
 class Suit(EnumReprMixin, enum.Enum):
@@ -200,8 +173,11 @@ class CardsEvaluator:
 
 
 class PlayerHand:
-    def __init__(self, cards: List[Card] = None):
-        self._cards = cards or []
+    def __init__(self, card_or_cards: Union[Card, List[Card]] = None):
+        if isinstance(card_or_cards, Card):
+            self._cards = [card_or_cards]
+        else:
+            self._cards = card_or_cards or []
 
     def add_card(
         self, card: Card, other: Card = None, close: bool = False
@@ -268,43 +244,69 @@ class Busted(Closed):
     pass
 
 
-class PlayerCards:
-    def __init__(self):
-        self.cards: List[Card] = []
+# class PlayerCards:
+#     def __init__(self):
+#         self.cards: List[Card] = []
+#
+#     def add_card(self, card: Card):
+#         self.cards.append(card)
+#         self.evaluate()
+#
+#     def high(self):
+#         return sum(c.high for c in self.cards)
+#
+#     def low(self):
+#         return sum(c.low for c in self.cards)
+#
+#     def only_two(self) -> bool:
+#         return len(self.cards) == 2
+#
+#     def evaluate(self) -> PlayerCardsState:
+#         if self.only_two() and self.high() == 21:
+#             return PlayerCardsState.BJ
+#
+#         if self.only_two() and len(set(self.values())) == 1:
+#             return PlayerCardsState.SPLITTABLE
+#
+#         if self.low() > 21 and self.high() > 21:
+#             return PlayerCardsState.BUSTED
+#
+#         if self.only_two():
+#             return PlayerCardsState.PLAYABLE | PlayerCardsState.START
+#
+#         return PlayerCardsState.PLAYABLE
+#
+#     def values(self):
+#         return [c.value for c in self.cards]
+#
+#     def __repr__(self):
+#         return f"{self.__class__.__name__}({self.cards})"
 
-    def add_card(self, card: Card):
-        self.cards.append(card)
-        self.evaluate()
 
-    def high(self):
-        return sum(c.high for c in self.cards)
+def main():
+    # for card in Shoe(2, True):
+    #     print(card)
+    # assert len(list(Shoe(3))) == 156
+    # assert len(list(Shoe(3).shuffle())) == 156
+    # assert len(list(Shoe(2, True))) == 104
+    # assert set(Shoe()) == set(Shoe(shuffle=True))
+    # assert len(set(Shoe(shuffle=True))) == 52
 
-    def low(self):
-        return sum(c.low for c in self.cards)
+    shoe = Shoe(shuffle=True)
 
-    def only_two(self) -> bool:
-        return len(self.cards) == 2
+    player_cards = PlayerHand(shoe.get_one())
+    player_cards = player_cards.add_card(shoe.get_one())
+    print(player_cards, player_cards.value)
 
-    def evaluate(self) -> PlayerCardsState:
-        if self.only_two() and self.high() == 21:
-            return PlayerCardsState.BJ
+    played = []
+    in_play = [player_cards]
 
-        if self.only_two() and len(set(self.values())) == 1:
-            return PlayerCardsState.SPLITTABLE
-
-        if self.low() > 21 and self.high() > 21:
-            return PlayerCardsState.BUSTED
-
-        if self.only_two():
-            return PlayerCardsState.PLAYABLE | PlayerCardsState.START
-
-        return PlayerCardsState.PLAYABLE
-
-    def values(self):
-        return [c.value for c in self.cards]
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.cards})"
+    while not isinstance(player_cards, Closed):
+        player_cards = player_cards.add_card(shoe.get_one())
+        print(
+            player_cards,
+            player_cards.value,
+        )
 
 
 if __name__ == "__main__":
