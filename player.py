@@ -1,14 +1,9 @@
 import dataclasses
+from typing import Tuple
+
+from entity import Entity
+from player_hand import PlayerCards
 
 
-@dataclasses.dataclass(frozen=True)
-class PlayerId:
-    value: str
-
-    @staticmethod
-    def of(value: str):
-        return PlayerId(value)
-
-@dataclasses.dataclass(frozen=True)
-class Player:
-    id: PlayerId
+class Player(Entity):
+    cards: Tuple[PlayerCards, ...]

@@ -1,10 +1,10 @@
 import dataclasses
-from typing import NewType, Dict, List, Tuple, Optional
+from typing import NewType, Dict, Tuple, Optional
 
 from _decimal import Decimal
 from ksuid import ksuid
 
-from events import GameEvent
+from entity import Entity
 from exceptions import GameException
 from player import PlayerId, Player
 
@@ -19,6 +19,10 @@ class Round:
     current_player: Optional[Player] = dataclasses.field(default=None)
     next_players: Tuple[Player] = dataclasses.field(default_factory=tuple)
 
+    @property
+    def is_finished(self):
+        return self.current_player is None and not self.next_players
+
 
 class SeatTaken(GameException):
     def __init__(self, seat: Seat):
@@ -31,17 +35,18 @@ class NoPlayers(GameException):
         super().__init__(f"No players to start new game round")
 
 
-@dataclasses.dataclass(frozen=True)
-class Table:
+class RoundInProgress(GameException):
+    pass
+
+
+class Table(Entity):
     number_of_seats: int
     description: str
     rate: int
     bj_multiplayer: Decimal
 
 
-@dataclasses.dataclass(frozen=True)
-class GameTable:
-    id: ksuid
+class GameTable(Entity):
     seats: Tuple[Seat]
     taken_seats: Dict[Seat, PlayerId] = dataclasses.field(default_factory=dict)
     current_round: Round = dataclasses.field(default=None)
@@ -63,20 +68,14 @@ class GameTable:
 
     @classmethod
     def of(cls, table: Table):
-        return GameTable(ksuid(), tuple(range(1, table.number_of_seats + 1)))
+        return GameTable(ksuid(), 1, tuple(range(1, table.number_of_seats + 1)))
 
     def start_round(self):
         if not self.taken_seats:
             raise NoPlayers()
-        if self.current_round is None:
-            return dataclasses.replace(self, current_round=Round(self.taken_seats.copy()))
+        if self.current_round is None or self.current_round.is_finished:
+            return dataclasses.replace(
+                self, current_round=Round(self.taken_seats.copy())
+            )
         else:
-            pass
-
-
-if __name__ == "__main__":
-    table = Table(5, "basic table", 1, Decimal("3.2"))
-    print(table)
-    game_table = GameTable.of(table)
-    print(game_table)
-    game_table.start_round()
+            raise RoundInProgress()
