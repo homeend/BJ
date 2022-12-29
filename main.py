@@ -5,18 +5,19 @@ from functools import cached_property
 from typing import List, NewType, Tuple, Union
 
 
-class AutoName(enum.Enum):
-    @staticmethod
-    def _generate_next_value_(name, start, count, last_values):
-        return name
-
-
-class EnumReprMixin(enum.Flag):
-    def __repr__(self):
-        return f"{self.__class__.__name__}.{self.name}"
-
-
-class PlayerCardsState(EnumReprMixin, enum.Flag):
+# class AutoName(str, enum.Enum):
+#     @staticmethod
+#     def _generate_next_value_(name, start, count, last_values):
+#         return name
+#
+#
+# class EnumReprMixin(enum.Flag):
+#     pass
+#     # def __repr__(self):
+#     #     return f"{self.__class__.__name__}.{self.name}"
+#
+#
+class PlayerCardsState(enum.Enum):
     PLAYABLE = enum.auto()
     BUSTED = enum.auto()
     SPLITTABLE = enum.auto()
@@ -24,14 +25,14 @@ class PlayerCardsState(EnumReprMixin, enum.Flag):
     START = enum.auto()
 
 
-class PlayerAction(EnumReprMixin, AutoName):
+class PlayerAction(enum.Enum):
     HIT = enum.auto()
     STAND = enum.auto()
     SPLIT = enum.auto()
     DOUBLE = enum.auto()
 
 
-class Suit(EnumReprMixin, enum.Enum):
+class Suit(enum.Enum):
     HEART = enum.auto()
     SPADES = enum.auto()
     CLUBS = enum.auto()
