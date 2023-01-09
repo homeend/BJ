@@ -3,6 +3,8 @@ import enum
 from functools import cached_property
 from typing import List, Union, Tuple
 
+from ksuid import ksuid
+
 from base import DomainError
 from cards import Card, Values
 
@@ -70,6 +72,8 @@ class CardsEvaluator:
 
 class PlayerCards:
     def __init__(self, card_or_cards: Union[Card, List[Card]] = None):
+        self.id = ksuid()
+
         if isinstance(card_or_cards, Card):
             self._cards = [card_or_cards]
         else:

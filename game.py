@@ -7,21 +7,22 @@ from ksuid import ksuid
 from entity import Entity
 from exceptions import GameException
 from player import PlayerId, Player
+from player_hand import PlayerCards
 
 Seat = NewType("Seat", int)
 
 
-@dataclasses.dataclass(frozen=True)
-class Round:
+class Round(Entity):
     initial_players: Dict[Seat, PlayerId]
-    kicked_players: Tuple[PlayerId] = dataclasses.field(default_factory=tuple)
+    # kicked_players: Tuple[PlayerId] = dataclasses.field(default_factory=tuple)
     finished_players: Tuple[PlayerId] = dataclasses.field(default_factory=tuple)
     current_player: Optional[Player] = dataclasses.field(default=None)
-    next_players: Tuple[Player] = dataclasses.field(default_factory=tuple)
+    awaiting_players: Tuple[PlayerId] = dataclasses.field(default_factory=tuple)
+    # players_cards: Dict[PlayerId, PlayerCards]
 
     @property
     def is_finished(self):
-        return self.current_player is None and not self.next_players
+        return self.current_player is None and not self.awaiting_players
 
 
 class SeatTaken(GameException):
